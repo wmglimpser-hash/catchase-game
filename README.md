@@ -17,7 +17,10 @@
 
 ## 访问地址
 
-部署完成后，评审可通过以下链接访问：
+评审可通过以下公开链接访问（DuMate 平台分享）：
+`https://www.dumate.cn/s/ThG8ZuyI`
+
+备用镜像（GitHub Pages）：
 `https://wmglimpser-hash.github.io/catchase-game/`
 
 ## 技术栈
