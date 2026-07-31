@@ -1,0 +1,2876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CatChase - 小猫猎手</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; user-select: none; -webkit-user-select: none; }
+
+/* ========== 主界面 ========== */
+#menu-screen {
+  position: fixed; inset: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0d1b2a 0%, #1b2838 40%, #1a1a2e 100%);
+  color: #fff; z-index: 100;
+}
+
+/* 模糊光球背景层 */
+.bg-orb {
+  position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
+  filter: blur(80px); opacity: 0.25;
+}
+.bg-orb.orb-1 {
+  width: 450px; height: 450px; top: -10%; left: -5%;
+  background: radial-gradient(circle, #ff9a56, transparent 70%);
+  animation: orbDrift1 25s ease-in-out infinite;
+}
+.bg-orb.orb-2 {
+  width: 350px; height: 350px; bottom: -8%; right: -5%;
+  background: radial-gradient(circle, #ff6b9d, transparent 70%);
+  animation: orbDrift2 20s ease-in-out infinite;
+}
+.bg-orb.orb-3 {
+  width: 400px; height: 400px; bottom: 20%; left: 30%;
+  background: radial-gradient(circle, #feca57, transparent 70%);
+  animation: orbDrift3 30s ease-in-out infinite;
+}
+@keyframes orbDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(60px, 40px) scale(1.1); }
+  66% { transform: translate(-30px, 60px) scale(0.95); }
+}
+@keyframes orbDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, -30px) scale(1.15); }
+  66% { transform: translate(30px, -50px) scale(0.9); }
+}
+@keyframes orbDrift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(40px, -40px) scale(1.2); }
+}
+
+/* 动态背景 canvas */
+#menu-bg-canvas { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.85; }
+
+/* 浮动猫爪装饰 */
+.paw-deco {
+  position: absolute; font-size: 2.5em; opacity: 0.04; pointer-events: none; z-index: 2;
+  animation: pawFloat 8s ease-in-out infinite;
+}
+@keyframes pawFloat {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); opacity: 0.04; }
+  50% { transform: translateY(-20px) rotate(calc(var(--rot, 0deg) + 10deg)); opacity: 0.08; }
+}
+
+/* 主内容容器 */
+.menu-content {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; align-items: center;
+  animation: fadeInUp 0.8s ease-out;
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Logo 区域 */
+.menu-logo-wrap {
+  position: relative; margin-bottom: 0.5em;
+}
+.menu-logo-wrap .logo-ring {
+  position: absolute; inset: -12px; border-radius: 50%;
+  border: 2px solid rgba(255,165,0,0.15);
+  animation: ringPulse 3s ease-in-out infinite;
+}
+.menu-logo-wrap .logo-ring:nth-child(2) { animation-delay: 1s; }
+.menu-logo-wrap .logo-ring:nth-child(3) { animation-delay: 2s; }
+@keyframes ringPulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+#menu-screen .logo {
+  font-size: 4.5em; position: relative; z-index: 2;
+  animation: bounce 2.5s ease-in-out infinite;
+  filter: drop-shadow(0 4px 20px rgba(255,165,0,0.4));
+}
+
+/* 标题 */
+#menu-screen h1 {
+  font-size: 2.8em; margin-bottom: 0.15em;
+  background: linear-gradient(135deg, #FFA500, #FF6B6B, #FFD700);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 2px; font-weight: 800;
+  filter: drop-shadow(0 2px 8px rgba(255,165,0,0.2));
+}
+#menu-screen .subtitle {
+  color: rgba(255,255,255,0.45); margin-bottom: 2.5em;
+  font-size: 1em; letter-spacing: 3px; text-transform: uppercase;
+}
+
+/* 猎物预览行 */
+/* 猎物选择区 */
+.prey-select-label {
+  color: rgba(255,255,255,0.4); font-size: 0.85em; margin-bottom: 0.8em;
+  letter-spacing: 1px;
+}
+.prey-preview {
+  display: flex; gap: 10px; margin-bottom: 2em;
+  justify-content: center; flex-wrap: wrap;
+}
+.prey-preview .prey-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 16px; border-radius: 16px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; position: relative;
+  opacity: 0; transform: translateY(20px) scale(0.95);
+}
+.prey-preview .prey-chip.prey-chip-in {
+  opacity: 1; transform: translateY(0) scale(1);
+}
+.prey-preview .prey-chip:active {
+  transform: scale(0.93);
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,165,0,0.3);
+}
+.prey-preview .prey-chip::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #ff9a56, #ff6b9d);
+  border-radius: 16px 16px 0 0; transform: scaleX(0); transform-origin: center;
+  transition: transform 0.3s;
+}
+.prey-preview .prey-chip:active::before { transform: scaleX(1); }
+.prey-preview .prey-chip.selected {
+  background: rgba(255,165,0,0.12);
+  border-color: #FFA500;
+  box-shadow: 0 0 16px rgba(255,165,0,0.25);
+}
+.prey-preview .prey-chip.selected::before { transform: scaleX(1); }
+.prey-preview .prey-chip.selected .prey-name { color: #FFA500; }
+.prey-preview .prey-chip .check-mark {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #FFA500; color: #1a1a2e; font-size: 11px;
+  display: none; align-items: center; justify-content: center; font-weight: 700;
+}
+.prey-preview .prey-chip.selected .check-mark { display: flex; }
+.prey-preview .prey-chip canvas { width: 56px; height: 56px; }
+.prey-preview .prey-chip .prey-name { font-size: 0.7em; color: rgba(255,255,255,0.5); transition: color 0.25s; }
+
+/* 按钮组 */
+#menu-screen .btn-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.menu-btn {
+  padding: 16px 44px; font-size: 1.15em; border: none; border-radius: 50px;
+  cursor: pointer; transition: all 0.3s; font-weight: 600;
+  position: relative; overflow: hidden;
+}
+.menu-btn.primary {
+  background: linear-gradient(135deg, #FF6B6B, #FFA500); color: #fff;
+  box-shadow: 0 4px 20px rgba(255,107,107,0.35);
+  animation: btnGlow 2.5s ease-in-out infinite;
+}
+@keyframes btnGlow {
+  0%, 100% { box-shadow: 0 4px 20px rgba(255,107,107,0.35); }
+  50% { box-shadow: 0 4px 30px rgba(255,165,0,0.5); }
+}
+.menu-btn.primary::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 0; height: 0; border-radius: 50%; background: rgba(255,255,255,0.3);
+  transform: translate(-50%, -50%); transition: all 0.5s;
+}
+.menu-btn.primary:active::after { width: 300px; height: 300px; }
+/* 光泽扫过 */
+.menu-btn.primary::before {
+  content: ''; position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  animation: shine 3s ease-in-out infinite;
+}
+@keyframes shine {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+.menu-btn.secondary {
+  background: rgba(255,255,255,0.08); color: #fff;
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.menu-btn:active { transform: scale(0.97); }
+
+/* 统计信息卡片 */
+#menu-screen .stats-info {
+  margin-top: 2em; display: flex; gap: 24px;
+}
+.stats-card {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px; padding: 12px 24px; text-align: center;
+  min-width: 110px;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.stats-card .stats-value {
+  font-size: 1.6em; font-weight: 700; color: #FFA500;
+}
+.stats-card .stats-label {
+  font-size: 0.75em; color: rgba(255,255,255,0.4); margin-top: 2px;
+  letter-spacing: 1px;
+}
+.stats-empty { color: rgba(255,255,255,0.3); font-size: 0.85em; margin-top: 1.5em; }
+
+/* 底部提示 */
+.menu-footer-tip {
+  position: absolute; bottom: 20px; left: 0; right: 0;
+  text-align: center; color: rgba(255,255,255,0.2); font-size: 0.8em; z-index: 10;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+/* 彩蛋：彩虹模式 */
+.rainbow-mode {
+  animation: rainbowHue 3s linear;
+}
+@keyframes rainbowHue {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+/* ========== 游戏画面 ========== */
+#game-screen { position: fixed; inset: 0; display: none; }
+#game-screen.screen-enter { animation: screenZoomIn 0.35s ease-out; }
+#game-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+@keyframes screenZoomIn {
+  from { opacity: 0; transform: scale(1.08); }
+  to { opacity: 1; transform: scale(1); }
+}
+#hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px; z-index: 10;
+  transition: opacity 1s; pointer-events: none;
+}
+#hud .score { font-size: 1.4em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.6); font-weight: 600; display: inline-block; }
+#hud .score.score-pop { animation: scorePop 0.35s ease; }
+@keyframes scorePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #FFD700; }
+  100% { transform: scale(1); }
+}
+#hud .combo { font-size: 1.1em; color: #FFD700; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.hud-btn {
+  width: 40px; height: 40px; border: none; border-radius: 50%;
+  background: rgba(255,255,255,0.15); color: #fff; font-size: 1.2em;
+  cursor: pointer; pointer-events: auto; transition: all 0.3s;
+  display: flex; align-items: center; justify-content: center;
+}
+.hud-btn:active { background: rgba(255,255,255,0.35); }
+
+/* 暂停菜单 */
+#pause-menu {
+  position: absolute; top: 52px; right: 16px;
+  display: none; flex-direction: column; gap: 4px;
+  background: rgba(0,0,0,0.8); border-radius: 12px;
+  padding: 8px; z-index: 20; min-width: 140px;
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+}
+#pause-menu.show { display: flex; }
+#pause-menu .pm-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 8px; cursor: pointer;
+  color: #e0e0e0; font-size: 0.95em; transition: background 0.2s;
+  pointer-events: auto;
+}
+#pause-menu .pm-item:hover { background: rgba(255,255,255,0.1); }
+#pause-menu .pm-item:active { background: rgba(255,255,255,0.2); }
+#pause-menu .pm-icon { font-size: 1.1em; margin-right: 8px; }
+#pause-menu .pm-label { flex: 1; }
+#pause-menu .pm-state { font-size: 0.85em; color: #888; }
+
+/* 休息提醒 */
+#rest-reminder {
+  position: absolute; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.85); z-index: 50; color: #fff;
+}
+#rest-reminder .content { text-align: center; }
+#rest-reminder .content h2 { font-size: 2em; margin-bottom: 0.5em; }
+#rest-reminder .content p { font-size: 1.2em; color: #aaa; margin-bottom: 1.5em; }
+#rest-reminder .content button {
+  padding: 12px 36px; font-size: 1.1em; border: none; border-radius: 30px;
+  background: #FF6B6B; color: #fff; cursor: pointer;
+}
+
+/* ========== 编辑面板 ========== */
+#edit-screen {
+  position: fixed; inset: 0; display: none;
+  background: #1a1a2e; color: #e0e0e0; z-index: 100;
+  flex-direction: column;
+}
+#edit-screen .edit-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px; background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+#edit-screen .edit-header h2 { font-size: 1.2em; color: #fff; }
+#edit-screen .edit-header .actions { display: flex; gap: 10px; }
+.edit-header-btn {
+  padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer;
+  font-size: 0.95em; transition: all 0.2s;
+}
+.edit-header-btn.save { background: #4CAF50; color: #fff; }
+.edit-header-btn.back { background: rgba(255,255,255,0.1); color: #e0e0e0; }
+
+.edit-body { display: flex; flex: 1; overflow: hidden; }
+.edit-sidebar {
+  width: 340px; min-width: 340px; overflow-y: auto;
+  padding: 16px; background: rgba(0,0,0,0.2);
+}
+.edit-preview {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.1); position: relative;
+}
+#preview-canvas { border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 95%; max-height: 95%; }
+
+/* 折叠面板 */
+.section { margin-bottom: 8px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; }
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; cursor: pointer; font-size: 0.95em; font-weight: 600;
+  color: #ccc; transition: background 0.2s;
+}
+.section-header:hover { background: rgba(255,255,255,0.06); }
+.section-header .arrow { transition: transform 0.3s; font-size: 0.8em; }
+.section.collapsed .arrow { transform: rotate(-90deg); }
+.section.collapsed .section-content { display: none; }
+.section-content { padding: 0 14px 14px 14px; }
+
+/* 控件 */
+.control-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.control-row label { font-size: 0.85em; color: #aaa; flex-shrink: 0; }
+.control-row .value-display { font-size: 0.85em; color: #FFA500; min-width: 50px; text-align: right; }
+
+input[type="range"] {
+  -webkit-appearance: none; width: 140px; height: 6px;
+  background: rgba(255,255,255,0.15); border-radius: 3px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  background: #FFA500; border-radius: 50%; cursor: pointer; border: 2px solid #fff;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; background: #FFA500; border-radius: 50%;
+  cursor: pointer; border: 2px solid #fff;
+}
+
+input[type="color"] {
+  width: 36px; height: 28px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 6px; cursor: pointer; background: none;
+}
+
+.color-swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+.swatch {
+  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: all 0.2s;
+}
+.swatch.active { border-color: #fff; transform: scale(1.15); }
+
+.btn-small {
+  padding: 6px 14px; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; background: rgba(255,255,255,0.06);
+  color: #e0e0e0; cursor: pointer; font-size: 0.82em; transition: all 0.2s;
+}
+.btn-small:hover { background: rgba(255,255,255,0.12); }
+.btn-small.danger { color: #ff6b6b; }
+.btn-small.danger:hover { background: rgba(255,107,107,0.15); }
+
+select {
+  padding: 5px 10px; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; background: rgba(255,255,255,0.06);
+  color: #e0e0e0; font-size: 0.85em; cursor: pointer;
+  -webkit-appearance: none; -moz-appearance: none;
+}
+select option { background: #1a1a2e; }
+
+.radio-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.radio-item {
+  padding: 5px 12px; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px; cursor: pointer; font-size: 0.82em;
+  color: #aaa; transition: all 0.2s;
+}
+.radio-item.active { background: rgba(255,165,0,0.2); border-color: #FFA500; color: #FFA500; }
+
+.toggle {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: rgba(255,255,255,0.15); position: relative; cursor: pointer;
+  transition: background 0.3s; flex-shrink: 0;
+}
+.toggle.on { background: #4CAF50; }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  transition: transform 0.3s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* 主题预设按钮 */
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.theme-btn {
+  padding: 10px; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; background: rgba(255,255,255,0.04);
+  color: #ccc; cursor: pointer; text-align: center; font-size: 0.85em;
+  transition: all 0.2s;
+}
+.theme-btn:hover { border-color: rgba(255,165,0,0.5); }
+.theme-btn.active { border-color: #FFA500; background: rgba(255,165,0,0.1); color: #FFA500; }
+
+/* 文件上传 */
+.upload-area {
+  margin-top: 8px; padding: 16px; border: 2px dashed rgba(255,255,255,0.2);
+  border-radius: 8px; text-align: center; cursor: pointer;
+  transition: all 0.2s; font-size: 0.85em; color: #888;
+}
+.upload-area:hover { border-color: #FFA500; color: #FFA500; }
+#file-input { display: none; }
+.upload-preview { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.upload-thumb {
+  width: 50px; height: 50px; border-radius: 6px; object-fit: contain;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+}
+.upload-thumb-wrapper { position: relative; }
+.upload-thumb-remove {
+  position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
+  border-radius: 50%; background: #ff4444; color: #fff; font-size: 12px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  border: none; line-height: 1;
+}
+
+.edit-footer {
+  display: flex; gap: 10px; padding: 12px 16px;
+  background: rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+.edit-footer .btn-small { flex: 1; text-align: center; padding: 10px; font-size: 0.95em; }
+.edit-footer .btn-small.primary { background: #FF6B6B; border-color: #FF6B6B; color: #fff; }
+
+/* 滚动条 */
+.edit-sidebar::-webkit-scrollbar { width: 6px; }
+.edit-sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+/* 全屏按钮 */
+.fs-btn {
+  position: fixed; top: 12px; right: 12px; z-index: 200;
+  width: 40px; height: 40px; border-radius: 12px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: rgba(255,255,255,0.7); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s; line-height: 1;
+}
+.fs-btn:active { transform: scale(0.9); background: rgba(255,165,0,0.15); }
+
+/* 全屏时铺满，无白边 - 背景色由JS动态设置 */
+:root { background: #0d1b2a; }
+:fullscreen { width: 100vw; height: 100vh; }
+:-webkit-full-screen { width: 100vw; height: 100vh; }
+#menu-screen, #game-screen, #edit-screen { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+
+<!-- ========== 主界面 ========== -->
+<div id="menu-screen">
+  <button class="fs-btn" id="fs-btn-menu" onclick="toggleFullscreen()">⛶</button>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+  <canvas id="menu-bg-canvas"></canvas>
+  <div class="paw-deco" style="top:8%;left:6%;--rot:-15deg">🐾</div>
+  <div class="paw-deco" style="top:18%;right:8%;--rot:25deg;animation-delay:1s">🐾</div>
+  <div class="paw-deco" style="bottom:15%;left:10%;--rot:40deg;animation-delay:2s">🐾</div>
+  <div class="paw-deco" style="bottom:25%;right:6%;--rot:-20deg;animation-delay:0.5s">🐾</div>
+  <div class="paw-deco" style="top:45%;left:3%;--rot:60deg;animation-delay:3s">🐾</div>
+  <div class="paw-deco" style="top:55%;right:4%;--rot:-35deg;animation-delay:1.5s">🐾</div>
+
+  <div class="menu-content">
+    <div class="menu-logo-wrap">
+      <div class="logo-ring"></div>
+      <div class="logo-ring"></div>
+      <div class="logo-ring"></div>
+      <div class="logo">🐱</div>
+    </div>
+    <h1>CatChase</h1>
+    <p class="subtitle">小猫猎手</p>
+
+    <div class="prey-select-label">选择猎物</div>
+    <div class="prey-preview" id="prey-preview"></div>
+
+    <div class="btn-group">
+      <button class="menu-btn primary" onclick="UI.showScreen('game')">▶ 开始游戏</button>
+      <button class="menu-btn secondary" onclick="UI.showScreen('edit')">⚙ 自定义设置</button>
+    </div>
+    <div class="stats-info" id="menu-stats"></div>
+  </div>
+
+  <div class="menu-footer-tip">提示：在自定义设置中可上传你家的猫咪照片作为猎物</div>
+</div>
+
+<!-- ========== 游戏画面 ========== -->
+<div id="game-screen">
+  <canvas id="game-canvas"></canvas>
+  <div id="hud">
+    <span class="score" id="score-display">0</span>
+    <span class="combo" id="combo-display"></span>
+    <button class="hud-btn" onclick="Game.togglePauseMenu()" title="暂停" id="pause-btn">⏸</button>
+  </div>
+  <div id="pause-menu">
+    <div class="pm-item" onclick="Game.togglePause()">
+      <span class="pm-icon">▶</span><span class="pm-label" id="pm-pause-label">继续游戏</span>
+    </div>
+    <div class="pm-item" onclick="Game.toggleMusic()">
+      <span class="pm-icon">🎵</span><span class="pm-label">背景音乐</span><span class="pm-state" id="pm-music-state">开</span>
+    </div>
+    <div class="pm-item" onclick="Game.toggleSound()">
+      <span class="pm-icon">🔊</span><span class="pm-label">音效</span><span class="pm-state" id="pm-sound-state">开</span>
+    </div>
+    <div class="pm-item" onclick="UI.showScreen('edit', {fromPause:true})">
+      <span class="pm-icon">⚙</span><span class="pm-label">自定义设置</span>
+    </div>
+    <div class="pm-item" onclick="UI.showScreen('menu')" style="color:#ff6b6b">
+      <span class="pm-icon">←</span><span class="pm-label">返回主菜单</span>
+    </div>
+  </div>
+  <div id="rest-reminder">
+    <div class="content">
+      <h2>😺 休息一下吧！</h2>
+      <p>小猫已经玩了5分钟了，建议休息一会儿</p>
+      <button onclick="Game.dismissRest()">继续游戏</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 编辑面板 ========== -->
+<div id="edit-screen">
+  <div class="edit-header">
+    <h2>⚙ 自定义设置</h2>
+    <div class="actions">
+      <button class="edit-header-btn back" onclick="Editor.goBack()">← 返回</button>
+      <button class="edit-header-btn save" onclick="Editor.saveAndPlay()">▶ 保存并试玩</button>
+    </div>
+  </div>
+  <div class="edit-body">
+    <div class="edit-sidebar" id="edit-sidebar"></div>
+    <div class="edit-preview">
+      <canvas id="preview-canvas"></canvas>
+    </div>
+  </div>
+  <div class="edit-footer">
+    <button class="btn-small" onclick="Editor.resetDefaults()">重置默认</button>
+    <button class="btn-small primary" onclick="Editor.saveAndPlay()">▶ 保存并试玩</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CatChase - 小猫猎手 | 完整游戏引擎 + 自定义编辑器
+// ============================================================
+
+// ---- 默认配置 ----
+const DEFAULTS = {
+  prey: { size: 60, speed: 5, color: '#FFA500', customImages: [], movement: 'sine' },
+  background: { color: '#1a1a2e', gradient: true, gradientColor: '#16213e', gradientDirection: 'vertical' },
+  effect: { type: 'shatter', color: '#FFFFFF', intensity: 15, duration: 600, sound: 'pop' },
+  game: { preyCount: 3, difficultyRamp: true, soundEnabled: true, musicEnabled: true, musicVolume: 0.15, restReminder: true, restInterval: 300 }
+};
+
+// ---- 预设主题 ----
+const THEMES = {
+  pond: {
+    name: '🐟 池塘',
+    prey: { size: 60, speed: 4, color: '#FF8C00', movement: 'sine' },
+    background: { color: '#0a3d5c', gradient: true, gradientColor: '#062a40', gradientDirection: 'vertical' },
+    effect: { type: 'ripple', color: '#80D8FF', intensity: 18, duration: 700, sound: 'bubble' }
+  },
+  night: {
+    name: '🔴 激光',
+    prey: { size: 35, speed: 7, color: '#FF1744', movement: 'dart' },
+    background: { color: '#1a0a0a', gradient: true, gradientColor: '#0d0505', gradientDirection: 'vertical' },
+    effect: { type: 'explosion', color: '#FF5252', intensity: 20, duration: 600, sound: 'bubble' }
+  },
+  grass: {
+    name: '🌿 草地',
+    prey: { size: 55, speed: 3, color: '#8BC34A', movement: 'wander' },
+    background: { color: '#1b3a1b', gradient: true, gradientColor: '#0f240f', gradientDirection: 'vertical' },
+    effect: { type: 'shatter', color: '#C8E6C9', intensity: 12, duration: 500, sound: 'pop' }
+  },
+  feather: {
+    name: '🪶 羽毛',
+    prey: { size: 50, speed: 2, color: '#FFFFFF', movement: 'fall' },
+    background: { color: '#1a1a2e', gradient: true, gradientColor: '#0f0f1e', gradientDirection: 'vertical' },
+    effect: { type: 'hearts', color: '#E0E0E0', intensity: 14, duration: 800, sound: 'pop' }
+  },
+  swamp: {
+    name: '🐸 沼泽',
+    prey: { size: 65, speed: 3, color: '#4CAF50', movement: 'frog' },
+    background: { color: '#1a2e1a', gradient: true, gradientColor: '#0d180d', gradientDirection: 'vertical' },
+    effect: { type: 'ripple', color: '#A5D6A7', intensity: 16, duration: 600, sound: 'pop' }
+  },
+  garden: {
+    name: '🦋 花园',
+    prey: { size: 55, speed: 4, color: '#E040FB', movement: 'butterfly' },
+    background: { color: '#2a1a3e', gradient: true, gradientColor: '#1a0d2e', gradientDirection: 'vertical' },
+    effect: { type: 'hearts', color: '#FF80AB', intensity: 14, duration: 700, sound: 'bell' }
+  },
+  web: {
+    name: '🕷️ 暗网',
+    prey: { size: 50, speed: 6, color: '#9E9E9E', movement: 'spider' },
+    background: { color: '#1c1c1c', gradient: true, gradientColor: '#0a0a0a', gradientDirection: 'vertical' },
+    effect: { type: 'shatter', color: '#BDBDBD', intensity: 18, duration: 500, sound: 'pop' }
+  },
+  meadow: {
+    name: '🦗 草丛',
+    prey: { size: 45, speed: 5, color: '#CDDC39', movement: 'cricket' },
+    background: { color: '#1e2e0a', gradient: true, gradientColor: '#101805', gradientDirection: 'vertical' },
+    effect: { type: 'stars', color: '#FFF9C4', intensity: 16, duration: 600, sound: 'bell' }
+  },
+  custom: {
+    name: '✨ 自定义'
+  }
+};
+
+// ---- 颜色色板 ----
+const COLOR_SWATCHES = ['#FFA500','#FF6B6B','#FFEB3B','#8BC34A','#4FC3F7','#E040FB','#FF80AB','#FFFFFF','#FF1744','#76FF03','#00E5FF','#FFD600'];
+
+// ---- 全局状态 ----
+let config = loadConfig();
+let gameInstance = null;
+let previewInstance = null;
+
+// ============================================================
+//  存储
+// ============================================================
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem('catchase-config');
+    if (saved) return deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), JSON.parse(saved));
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+
+function saveConfig() {
+  try { localStorage.setItem('catchase-config', JSON.stringify(config)); } catch(e) {}
+}
+
+// 更新根元素背景色，跟随当前主题（全屏时防白边）
+function updateRootBg() {
+  const bg = config.background;
+  const color = bg.gradient ? bg.color : bg.color;
+  document.documentElement.style.background = color;
+}
+
+function deepMerge(base, override) {
+  for (const key in override) {
+    if (typeof base[key] === 'object' && base[key] !== null && !Array.isArray(base[key])) {
+      base[key] = deepMerge(base[key], override[key] || {});
+    } else {
+      base[key] = override[key];
+    }
+  }
+  return base;
+}
+
+// 数字滚动动画 (easeOutCubic)
+function animateNumber(el, from, to, duration) {
+  const start = performance.now();
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.round(from + (to - from) * eased);
+    el.textContent = current;
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// 全屏切换
+function toggleFullscreen() {
+  const el = document.documentElement;
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!isFs) {
+    (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+}
+
+// 进入全屏
+function enterFullscreen() {
+  const el = document.documentElement;
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!isFs) {
+    (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  }
+}
+
+// 退出全屏
+function exitFullscreen() {
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (isFs) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  }
+}
+
+// 全屏状态同步（首页按钮图标）
+function syncFullscreenUI() {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const btn = document.getElementById('fs-btn-menu');
+  if (btn) btn.textContent = isFs ? '\u2715' : '\u26f6';
+}
+document.addEventListener('fullscreenchange', syncFullscreenUI);
+document.addEventListener('webkitfullscreenchange', syncFullscreenUI);
+
+function loadStats() {
+  try { return JSON.parse(localStorage.getItem('catchase-stats') || '{}'); }
+  catch(e) { return {}; }
+}
+function saveStats(s) {
+  try { localStorage.setItem('catchase-stats', JSON.stringify(s)); } catch(e) {}
+}
+
+// ============================================================
+//  音频引擎 — 专属音效 + 背景音乐
+// ============================================================
+const Audio = {
+  ctx: null,
+  masterGain: null,
+  musicGain: null,
+  musicNodes: [],
+  musicTimer: null,
+  musicPlaying: false,
+
+  init() {
+    if (!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.6;
+        this.masterGain.connect(this.ctx.destination);
+        this.musicGain = this.ctx.createGain();
+        this.musicGain.gain.value = 0.15;
+        this.musicGain.connect(this.masterGain);
+      } catch(e) {}
+    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  },
+
+  // ---- 按猎物类型播放专属音效 ----
+  playPreySound(movement) {
+    if (!config.game.soundEnabled) return;
+    this.init();
+    if (!this.ctx) return;
+    switch(movement) {
+      case 'sine':      this._sndWater(); break;
+      case 'dart':      this._sndLaser(); break;
+      case 'wander':    this._sndBuzz(); break;
+      case 'fall':      this._sndWind(); break;
+      case 'frog':      this._sndFrog(); break;
+      case 'butterfly': this._sndFlutter(); break;
+      case 'spider':    this._sndSkitter(); break;
+      case 'cricket':   this._sndCricket(); break;
+      default:          this.play(config.effect.sound); break;
+    }
+  },
+
+  // ---- 兼容旧接口 ----
+  play(type) {
+    if (!config.game.soundEnabled || type === 'none') return;
+    this.init();
+    if (!this.ctx) return;
+    switch(type) {
+      case 'pop':    this._sndPop(); break;
+      case 'bell':   this._sndBell(); break;
+      case 'bubble': this._sndBubble(); break;
+    }
+  },
+
+  // ========== 旧音效 ==========
+  _sndPop() {
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    o.type = 'sine'; o.frequency.setValueAtTime(600, t);
+    o.frequency.exponentialRampToValueAtTime(200, t + 0.1);
+    g.gain.setValueAtTime(0.3, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    o.start(t); o.stop(t + 0.15);
+  },
+  _sndBell() {
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    o.type = 'triangle'; o.frequency.setValueAtTime(880, t);
+    o.frequency.setValueAtTime(1320, t + 0.05);
+    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    o.start(t); o.stop(t + 0.3);
+  },
+  _sndBubble() {
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    o.type = 'sine'; o.frequency.setValueAtTime(400, t);
+    o.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+    o.start(t); o.stop(t + 0.12);
+  },
+
+  // ========== 猎物专属音效 ==========
+  // 鱼 - 水花声
+  _sndWater() {
+    const t = this.ctx.currentTime;
+    // 主体：低频水声
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    o.type = 'sine'; o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(500, t + 0.1);
+    o.frequency.exponentialRampToValueAtTime(80, t + 0.3);
+    g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    o.start(t); o.stop(t + 0.3);
+    // 水花噪声
+    this._noiseBurst(0.15, 0.12, 2000, 6000);
+  },
+  // 激光 - 电子嗡鸣
+  _sndLaser() {
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    o.type = 'square'; o.frequency.setValueAtTime(1200, t);
+    o.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+    o.start(t); o.stop(t + 0.15);
+    // 高频泛音
+    const o2 = this.ctx.createOscillator(), g2 = this.ctx.createGain();
+    o2.connect(g2); g2.connect(this.masterGain);
+    o2.type = 'sawtooth'; o2.frequency.setValueAtTime(2400, t);
+    o2.frequency.exponentialRampToValueAtTime(400, t + 0.1);
+    g2.gain.setValueAtTime(0.08, t); g2.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    o2.start(t); o2.stop(t + 0.1);
+  },
+  // 虫 - 虫鸣嗡嗡
+  _sndBuzz() {
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    const lfo = this.ctx.createOscillator(), lfoGain = this.ctx.createGain();
+    o.connect(g); g.connect(this.masterGain);
+    lfo.connect(lfoGain); lfoGain.connect(g.gain);
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t);
+    lfo.type = 'square'; lfo.frequency.setValueAtTime(35, t);
+    lfoGain.gain.value = 0.15;
+    g.gain.value = 0.2;
+    g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+    o.start(t); lfo.start(t);
+    o.stop(t + 0.25); lfo.stop(t + 0.25);
+  },
+  // 羽毛 - 风声呼啸
+  _sndWind() {
+    const t = this.ctx.currentTime;
+    const bufferSize = this.ctx.sampleRate * 0.4;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.sin(i / bufferSize * Math.PI);
+    }
+    const src = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const g = this.ctx.createGain();
+    src.buffer = buffer; src.connect(filter); filter.connect(g); g.connect(this.masterGain);
+    filter.type = 'bandpass'; filter.frequency.value = 800; filter.Q.value = 2;
+    g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+    src.start(t); src.stop(t + 0.4);
+  },
+  // 青蛙 - 蛙鸣呱呱
+  _sndFrog() {
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 2; i++) {
+      const start = t + i * 0.12;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      const lfo = this.ctx.createOscillator(), lfoGain = this.ctx.createGain();
+      o.connect(g); g.connect(this.masterGain);
+      lfo.connect(lfoGain); lfoGain.connect(g.gain);
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(120, start);
+      o.frequency.linearRampToValueAtTime(90, start + 0.08);
+      lfo.type = 'sine'; lfo.frequency.value = 50;
+      lfoGain.gain.value = 0.08;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.3, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.01, start + 0.1);
+      o.start(start); lfo.start(start);
+      o.stop(start + 0.1); lfo.stop(start + 0.1);
+    }
+  },
+  // 蝴蝶 - 轻柔扇翅
+  _sndFlutter() {
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 4; i++) {
+      const start = t + i * 0.04;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.connect(g); g.connect(this.masterGain);
+      o.type = 'sine'; o.frequency.setValueAtTime(600 + i * 100, start);
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.12, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.01, start + 0.035);
+      o.start(start); o.stop(start + 0.035);
+    }
+  },
+  // 蜘蛛 - 快速爬行咔哒
+  _sndSkitter() {
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 6; i++) {
+      const start = t + i * 0.03;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      o.connect(g); g.connect(this.masterGain);
+      o.type = 'square'; o.frequency.value = 1500 + Math.random() * 500;
+      g.gain.setValueAtTime(0.08, start);
+      g.gain.exponentialRampToValueAtTime(0.001, start + 0.02);
+      o.start(start); o.stop(start + 0.02);
+    }
+  },
+  // 蟋蟀 - 虫鸣唧唧
+  _sndCricket() {
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const start = t + i * 0.08;
+      const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+      const lfo = this.ctx.createOscillator(), lfoGain = this.ctx.createGain();
+      o.connect(g); g.connect(this.masterGain);
+      lfo.connect(lfoGain); lfoGain.connect(g.gain);
+      o.type = 'sine'; o.frequency.value = 4000;
+      lfo.type = 'square'; lfo.frequency.value = 80;
+      lfoGain.gain.value = 0.1;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.15, start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, start + 0.05);
+      o.start(start); lfo.start(start);
+      o.stop(start + 0.05); lfo.stop(start + 0.05);
+    }
+  },
+
+  // ---- 噪声脉冲工具 ----
+  _noiseBurst(volume, duration, freqLow, freqHigh) {
+    const t = this.ctx.currentTime;
+    const bufSize = Math.floor(this.ctx.sampleRate * duration);
+    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(i / bufSize * Math.PI);
+    const src = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const g = this.ctx.createGain();
+    src.buffer = buf; src.connect(filter); filter.connect(g); g.connect(this.masterGain);
+    filter.type = 'bandpass';
+    filter.frequency.value = (freqLow + freqHigh) / 2;
+    filter.Q.value = 1;
+    g.gain.setValueAtTime(volume, t); g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    src.start(t); src.stop(t + duration);
+  },
+
+  // ========== 背景音乐 ==========
+  startMusic() {
+    if (!config.game.musicEnabled) return;
+    this.init();
+    if (!this.ctx || this.musicPlaying) return;
+    this.musicPlaying = true;
+    this._scheduleMusic();
+  },
+
+  stopMusic() {
+    this.musicPlaying = false;
+    if (this.musicTimer) { clearTimeout(this.musicTimer); this.musicTimer = null; }
+    for (const n of this.musicNodes) {
+      try { n.stop(); } catch(e) {}
+    }
+    this.musicNodes = [];
+  },
+
+  setMusicVolume(v) {
+    if (this.musicGain) this.musicGain.gain.value = v;
+  },
+
+  _scheduleMusic() {
+    if (!this.musicPlaying) return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    // 简单的五声音阶旋律: C D E G A
+    const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+    const noteDur = 0.5;
+    const notesPerBar = 4;
+
+    for (let i = 0; i < notesPerBar; i++) {
+      const start = t + i * noteDur;
+      const freq = scale[Math.floor(Math.random() * scale.length)];
+
+      // 旋律
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(this.musicGain);
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.5, start + 0.05);
+      g.gain.linearRampToValueAtTime(0.3, start + noteDur * 0.6);
+      g.gain.exponentialRampToValueAtTime(0.001, start + noteDur * 0.9);
+      o.start(start); o.stop(start + noteDur);
+      this.musicNodes.push(o);
+
+      // 低音和弦
+      if (i === 0) {
+        const bo = ctx.createOscillator(), bg = ctx.createGain();
+        bo.connect(bg); bg.connect(this.musicGain);
+        bo.type = 'triangle'; bo.frequency.value = freq / 2;
+        bg.gain.setValueAtTime(0, start);
+        bg.gain.linearRampToValueAtTime(0.3, start + 0.1);
+        bg.gain.exponentialRampToValueAtTime(0.001, start + noteDur * notesPerBar * 0.8);
+        bo.start(start); bo.stop(start + noteDur * notesPerBar);
+        this.musicNodes.push(bo);
+      }
+    }
+
+    // 清理已结束的节点
+    this.musicNodes = this.musicNodes.filter(n => n.context.currentTime < t + noteDur * notesPerBar + 1);
+
+    // 下一小节
+    this.musicTimer = setTimeout(() => this._scheduleMusic(), noteDur * notesPerBar * 1000);
+  }
+};
+
+// ============================================================
+//  粒子系统
+// ============================================================
+class Particle {
+  constructor(x, y, color, type) {
+    this.x = x; this.y = y; this.color = color; this.type = type;
+    this.life = 1;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 5;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.size = 3 + Math.random() * 5;
+    this.rotation = Math.random() * Math.PI * 2;
+    this.rotSpeed = (Math.random() - 0.5) * 0.3;
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    this.vy += 0.15; this.vx *= 0.98;
+    this.life -= 0.02;
+    this.rotation += this.rotSpeed;
+  }
+  draw(ctx) {
+    if (this.life <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+
+    switch(this.type) {
+      case 'shatter':
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+        break;
+      case 'explosion':
+        const r = this.size * (1.5 - this.life);
+        const grad = ctx.createRadialGradient(0,0,0, 0,0,r);
+        grad.addColorStop(0, this.color);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+        break;
+      case 'stars':
+        drawStar(ctx, 0, 0, this.size, this.color);
+        break;
+      case 'ripple':
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2 * this.life;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * (2 - this.life * 1.5), 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      case 'hearts':
+        drawHeart(ctx, 0, 0, this.size, this.color);
+        break;
+    }
+    ctx.restore();
+  }
+}
+
+function drawStar(ctx, cx, cy, size, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
+    const a2 = a + Math.PI / 5;
+    ctx.lineTo(cx + Math.cos(a) * size, cy + Math.sin(a) * size);
+    ctx.lineTo(cx + Math.cos(a2) * size * 0.4, cy + Math.sin(a2) * size * 0.4);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawHeart(ctx, cx, cy, size, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  const s = size * 0.8;
+  ctx.moveTo(cx, cy + s * 0.3);
+  ctx.bezierCurveTo(cx, cy, cx - s, cy, cx - s, cy + s * 0.3);
+  ctx.bezierCurveTo(cx - s, cy + s * 0.7, cx, cy + s, cx, cy + s * 1.2);
+  ctx.bezierCurveTo(cx, cy + s, cx + s, cy + s * 0.7, cx + s, cy + s * 0.3);
+  ctx.bezierCurveTo(cx + s, cy, cx, cy, cx, cy + s * 0.3);
+  ctx.fill();
+}
+
+// ============================================================
+//  猎物
+// ============================================================
+class Prey {
+  constructor(canvasW, canvasH) {
+    this.size = config.prey.size;
+    this.color = config.prey.color;
+    this.speed = config.prey.speed;
+    this.movement = config.prey.movement;
+    this.canvasW = canvasW;
+    this.canvasH = canvasH;
+
+    // 选择图片
+    this.image = null;
+    if (config.prey.customImages && config.prey.customImages.length > 0) {
+      const idx = Math.floor(Math.random() * config.prey.customImages.length);
+      this.image = config.prey.customImages[idx];
+    }
+
+    // 初始位置
+    this.x = this.size + Math.random() * (canvasW - this.size * 2);
+    this.y = this.size + Math.random() * (canvasH - this.size * 2);
+
+    // 运动参数
+    this.t = Math.random() * Math.PI * 2;
+    this.dirX = Math.random() < 0.5 ? -1 : 1;
+    this.dirY = Math.random() < 0.5 ? -1 : 1;
+    this.pauseTimer = 0;
+    this.dartTimer = 0;
+    this.jumpPhase = 0;
+    this.jumpTimer = 0;
+
+    // 摆尾动画
+    this.tailPhase = 0;
+  }
+
+  update(dt) {
+    this.tailPhase += 0.1;
+    const sp = this.speed * (1 + (Game.difficultyMul - 1) * 0.3);
+
+    switch(this.movement) {
+      case 'sine':
+        this.t += 0.03 * sp;
+        this.x += Math.cos(this.t) * sp * 0.8 + this.dirX * sp * 0.3;
+        this.y += Math.sin(this.t * 1.3) * sp * 0.6 + this.dirY * sp * 0.2;
+        break;
+
+      case 'dart':
+        // 激光点：平滑移动 + 偶尔急转弯 + 短暂停顿，模拟手持激光笔
+        this.dartTimer -= dt;
+        if (this.dartTimer <= 0) {
+          // 随机决定下一步行为
+          const r = Math.random();
+          if (r < 0.2) {
+            // 短暂停顿
+            this.pauseTimer = 100 + Math.random() * 300;
+            this.dartTimer = this.pauseTimer;
+          } else if (r < 0.6) {
+            // 急转弯，新方向偏向当前方向的垂直方向（更像手持激光突然变向）
+            const currentAngle = Math.atan2(this.dirY, this.dirX);
+            const turn = (Math.random() - 0.5) * Math.PI * 1.5; // -67.5° ~ +67.5° 偏转
+            const newAngle = currentAngle + turn + (Math.random() < 0.3 ? Math.PI : 0);
+            this.dirX = Math.cos(newAngle);
+            this.dirY = Math.sin(newAngle);
+            this.dartTimer = 200 + Math.random() * 500;
+          } else {
+            // 小幅修正方向
+            const currentAngle = Math.atan2(this.dirY, this.dirX);
+            const tweak = (Math.random() - 0.5) * 0.6;
+            const newAngle = currentAngle + tweak;
+            this.dirX = Math.cos(newAngle);
+            this.dirY = Math.sin(newAngle);
+            this.dartTimer = 150 + Math.random() * 350;
+          }
+        }
+        // 暂停状态下不移动
+        if (this.pauseTimer > 0) {
+          this.pauseTimer -= dt;
+        } else {
+          this.x += this.dirX * sp * 1.5;
+          this.y += this.dirY * sp * 1.5;
+        }
+        break;
+
+      case 'wander':
+        this.t += 0.02 * sp;
+        this.x += Math.cos(this.t) * sp * 0.5 + Math.cos(this.t * 2.7) * sp * 0.3;
+        this.y += Math.sin(this.t * 1.5) * sp * 0.5 + Math.sin(this.t * 3.1) * sp * 0.3;
+        if (Math.random() < 0.005) this.pauseTimer = 500 + Math.random() * 1000;
+        break;
+
+      case 'fall':
+        this.y += sp * 0.8;
+        this.x += Math.sin(this.t) * sp * 0.5;
+        this.t += 0.04;
+        if (this.y > this.canvasH + this.size) {
+          this.y = -this.size;
+          this.x = this.size + Math.random() * (this.canvasW - this.size * 2);
+        }
+        break;
+
+      case 'frog':
+        // 青蛙：跳跃式移动，停顿后突然跳一大步
+        this.dartTimer -= dt;
+        if (this.dartTimer <= 0) {
+          // 开始跳跃
+          const a = Math.random() * Math.PI * 2;
+          this.dirX = Math.cos(a);
+          this.dirY = Math.sin(a);
+          this.jumpPhase = 1; // 正在跳
+          this.dartTimer = 100 + Math.random() * 200;
+          this.jumpTimer = 400 + Math.random() * 800; // 跳完后的停顿
+        }
+        if (this.jumpPhase > 0) {
+          this.x += this.dirX * sp * 3;
+          this.y += this.dirY * sp * 3;
+          this.jumpPhase -= 0.05;
+          if (this.jumpPhase <= 0) { this.jumpPhase = 0; this.dartTimer = this.jumpTimer; }
+        }
+        break;
+
+      case 'butterfly':
+        // 蝴蝶：8字形飘浮，缓慢优美
+        this.t += 0.025 * sp;
+        this.x += Math.cos(this.t) * sp * 1.2 + Math.cos(this.t * 3) * sp * 0.3;
+        this.y += Math.sin(this.t * 2) * sp * 0.8 + Math.sin(this.t * 5) * sp * 0.2;
+        break;
+
+      case 'spider':
+        // 蜘蛛：快速短距离爬行，走停走停
+        this.dartTimer -= dt;
+        if (this.dartTimer <= 0) {
+          if (this.jumpPhase === 0) {
+            // 开始快速爬行
+            const a = Math.random() * Math.PI * 2;
+            this.dirX = Math.cos(a);
+            this.dirY = Math.sin(a);
+            this.jumpPhase = 1;
+            this.dartTimer = 200 + Math.random() * 400;
+          } else {
+            // 停下来
+            this.jumpPhase = 0;
+            this.dirX = 0; this.dirY = 0;
+            this.dartTimer = 300 + Math.random() * 600;
+          }
+        }
+        this.x += this.dirX * sp * 2.5;
+        this.y += this.dirY * sp * 2.5;
+        break;
+
+      case 'cricket':
+        // 蟋蟀：弹跳式移动，类似青蛙但更高频、更短促
+        this.dartTimer -= dt;
+        if (this.dartTimer <= 0) {
+          const a = Math.random() * Math.PI * 2;
+          this.dirX = Math.cos(a);
+          this.dirY = Math.sin(a);
+          this.jumpPhase = 1;
+          this.dartTimer = 80 + Math.random() * 120;
+          this.jumpTimer = 200 + Math.random() * 400;
+        }
+        if (this.jumpPhase > 0) {
+          this.x += this.dirX * sp * 2;
+          this.y += this.dirY * sp * 2;
+          this.jumpPhase -= 0.08;
+          if (this.jumpPhase <= 0) { this.jumpPhase = 0; this.dartTimer = this.jumpTimer; }
+        }
+        break;
+    }
+
+    // 暂停
+    if (this.pauseTimer > 0) {
+      this.pauseTimer -= dt;
+      return;
+    }
+
+    // 边界反弹
+    if (this.x < this.size) { this.x = this.size; this.dirX = Math.abs(this.dirX); }
+    if (this.x > this.canvasW - this.size) { this.x = this.canvasW - this.size; this.dirX = -Math.abs(this.dirX); }
+    if (this.y < this.size) { this.y = this.size; this.dirY = Math.abs(this.dirY); }
+    if (this.y > this.canvasH - this.size) { this.y = this.canvasH - this.size; this.dirY = -Math.abs(this.dirY); }
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    if (this.image) {
+      // 绘制自定义图片
+      const img = ImageCache.get(this.image);
+      if (img) {
+        const s = this.size * 2;
+        ctx.drawImage(img, -s/2, -s/2, s, s);
+      } else {
+        // 图片还在加载，画占位
+        this._drawDefault(ctx);
+      }
+    } else {
+      this._drawDefault(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  _drawDefault(ctx) {
+    const s = this.size;
+    const c = this.color;
+
+    // 根据运动模式画不同形状
+    switch(this.movement) {
+      case 'sine':
+        // 小鱼
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * 0.6, s * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 尾巴
+        const tailWag = Math.sin(this.tailPhase) * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.5, 0);
+        ctx.lineTo(-s * 0.9, -s * 0.3 + tailWag * s);
+        ctx.lineTo(-s * 0.9, s * 0.3 + tailWag * s);
+        ctx.closePath(); ctx.fill();
+        // 眼睛
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.1, s * 0.08, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(s * 0.32, -s * 0.1, s * 0.04, 0, Math.PI * 2); ctx.fill();
+        break;
+
+      case 'dart':
+        // 激光点 + 拖尾
+        const grad = ctx.createRadialGradient(0,0,0, 0,0,s);
+        grad.addColorStop(0, c);
+        grad.addColorStop(0.3, c);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2); ctx.fill();
+        break;
+
+      case 'wander':
+        // 小虫
+        ctx.fillStyle = c;
+        for (let i = 0; i < 3; i++) {
+          const offset = Math.sin(this.tailPhase + i * 0.8) * s * 0.05;
+          ctx.beginPath();
+          ctx.arc(-s * 0.3 + i * s * 0.3, offset, s * 0.22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // 眼睛
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.05, s * 0.06, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(s * 0.32, -s * 0.05, s * 0.03, 0, Math.PI * 2); ctx.fill();
+        break;
+
+      case 'fall':
+        // 羽毛
+        ctx.fillStyle = c;
+        ctx.rotate(Math.sin(this.tailPhase) * 0.3);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * 0.3, s * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 中轴线
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.5); ctx.lineTo(0, s * 0.5);
+        ctx.stroke();
+        break;
+
+      case 'frog':
+        // 青蛙：圆胖身体 + 突出眼睛
+        ctx.fillStyle = c;
+        // 身体
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.1, s * 0.55, s * 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 后腿
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.5, s * 0.25, s * 0.2, s * 0.15, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(s * 0.5, s * 0.25, s * 0.2, s * 0.15, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // 眼睛凸起
+        ctx.beginPath();
+        ctx.arc(-s * 0.25, -s * 0.25, s * 0.18, 0, Math.PI * 2);
+        ctx.arc(s * 0.25, -s * 0.25, s * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+        // 眼白
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(-s * 0.25, -s * 0.25, s * 0.12, 0, Math.PI * 2);
+        ctx.arc(s * 0.25, -s * 0.25, s * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        // 瞳孔
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(-s * 0.25, -s * 0.22, s * 0.06, 0, Math.PI * 2);
+        ctx.arc(s * 0.25, -s * 0.22, s * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+        // 嘴
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, s * 0.1, s * 0.2, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+        break;
+
+      case 'butterfly':
+        // 蝴蝶：两对翅膀 + 细身体
+        const wingFlap = Math.abs(Math.sin(this.tailPhase * 2));
+        ctx.fillStyle = c;
+        // 上翅膀
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.35, -s * 0.15, s * 0.35 * wingFlap + s * 0.1, s * 0.3, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(s * 0.35, -s * 0.15, s * 0.35 * wingFlap + s * 0.1, s * 0.3, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // 下翅膀
+        ctx.fillStyle = c;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.25, s * 0.2, s * 0.25 * wingFlap + s * 0.08, s * 0.22, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(s * 0.25, s * 0.2, s * 0.25 * wingFlap + s * 0.08, s * 0.22, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        // 身体
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * 0.06, s * 0.35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 触角
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.3); ctx.lineTo(-s * 0.1, -s * 0.45);
+        ctx.moveTo(0, -s * 0.3); ctx.lineTo(s * 0.1, -s * 0.45);
+        ctx.stroke();
+        break;
+
+      case 'spider':
+        // 蜘蛛：圆身体 + 8条腿
+        ctx.fillStyle = c;
+        // 腿
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i++) {
+          const legOffset = Math.sin(this.tailPhase + i * 0.5) * s * 0.05;
+          const angle = (i - 1.5) * 0.35;
+          // 左侧
+          ctx.beginPath();
+          ctx.moveTo(-s * 0.2, -s * 0.1 + i * s * 0.12);
+          ctx.quadraticCurveTo(-s * 0.5, -s * 0.1 + i * s * 0.12 + legOffset, -s * 0.55, s * 0.05 + i * s * 0.12);
+          ctx.stroke();
+          // 右侧
+          ctx.beginPath();
+          ctx.moveTo(s * 0.2, -s * 0.1 + i * s * 0.12);
+          ctx.quadraticCurveTo(s * 0.5, -s * 0.1 + i * s * 0.12 + legOffset, s * 0.55, s * 0.05 + i * s * 0.12);
+          ctx.stroke();
+        }
+        // 身体（头胸）
+        ctx.beginPath();
+        ctx.arc(0, 0, s * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // 腹部
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.2, s * 0.3, s * 0.25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 眼睛
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath();
+        ctx.arc(-s * 0.08, -s * 0.05, s * 0.04, 0, Math.PI * 2);
+        ctx.arc(s * 0.08, -s * 0.05, s * 0.04, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+
+      case 'cricket':
+        // 蟋蟀：长身体 + 大后腿 + 触角
+        ctx.fillStyle = c;
+        // 身体
+        ctx.beginPath();
+        ctx.ellipse(0, 0, s * 0.4, s * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // 头
+        ctx.beginPath();
+        ctx.arc(s * 0.35, -s * 0.02, s * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+        // 大后腿
+        ctx.beginPath();
+        ctx.ellipse(-s * 0.3, s * 0.15, s * 0.18, s * 0.1, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+        // 触角
+        ctx.strokeStyle = c;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(s * 0.45, -s * 0.05);
+        ctx.quadraticCurveTo(s * 0.6, -s * 0.3, s * 0.55, -s * 0.5);
+        ctx.moveTo(s * 0.45, -s * 0.05);
+        ctx.quadraticCurveTo(s * 0.7, -s * 0.2, s * 0.75, -s * 0.45);
+        ctx.stroke();
+        // 眼睛
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(s * 0.4, -s * 0.05, s * 0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(s * 0.42, -s * 0.05, s * 0.025, 0, Math.PI * 2); ctx.fill();
+        break;
+    }
+  }
+
+  hitTest(px, py) {
+    const dx = px - this.x;
+    const dy = py - this.y;
+    return Math.sqrt(dx*dx + dy*dy) < this.size * 0.9;
+  }
+}
+
+// ---- 图片缓存 ----
+const ImageCache = {
+  _cache: {},
+  get(src) {
+    if (!src) return null;
+    if (!this._cache[src]) {
+      const img = new Image();
+      img.src = src;
+      this._cache[src] = img;
+    }
+    return this._cache[src];
+  }
+};
+
+// ============================================================
+//  游戏引擎
+// ============================================================
+const Game = {
+  canvas: null,
+  ctx: null,
+  preys: [],
+  particles: [],
+  score: 0,
+  combo: 0,
+  comboTimer: 0,
+  paused: false,
+  running: false,
+  lastTime: 0,
+  hudTimer: 0,
+  restTimer: 0,
+  difficultyMul: 1,
+  spawnExtra: false,
+
+  init() {
+    this.canvas = document.getElementById('game-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    this.canvas.addEventListener('pointerdown', (e) => this.onTap(e));
+  },
+
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.preys) {
+      for (const p of this.preys) {
+        p.canvasW = window.innerWidth;
+        p.canvasH = window.innerHeight;
+      }
+    }
+  },
+
+  start() {
+    this.score = 0; this.combo = 0; this.comboTimer = 0;
+    this.particles = []; this.paused = false; this.running = true;
+    this.hudTimer = 0; this.restTimer = 0; this.difficultyMul = 1;
+    this.spawnExtra = false;
+    this.spawnPreys();
+    this.updateHUD();
+    document.getElementById('hud').style.opacity = '1';
+    document.getElementById('rest-reminder').style.display = 'none';
+    // 背景音乐
+    Audio.setMusicVolume(config.game.musicVolume);
+    Audio.startMusic();
+    this.lastTime = performance.now();
+    requestAnimationFrame((t) => this.loop(t));
+  },
+
+  spawnPreys() {
+    this.preys = [];
+    const count = config.game.preyCount + (this.spawnExtra ? 2 : 0);
+    for (let i = 0; i < count; i++) {
+      this.preys.push(new Prey(window.innerWidth, window.innerHeight));
+    }
+  },
+
+  loop(now) {
+    if (!this.running) return;
+    const dt = Math.min(now - this.lastTime, 50);
+    this.lastTime = now;
+
+    if (!this.paused) {
+      // 更新猎物
+      for (const p of this.preys) p.update(dt);
+
+      // 更新粒子
+      this.particles = this.particles.filter(p => {
+        p.update();
+        return p.life > 0;
+      });
+
+      // 连击计时
+      if (this.combo > 0) {
+        this.comboTimer -= dt;
+        if (this.comboTimer <= 0) { this.combo = 0; this.updateHUD(); }
+      }
+
+      // HUD 自动隐藏
+      this.hudTimer += dt;
+      if (this.hudTimer > 4000) {
+        document.getElementById('hud').style.opacity = '0.15';
+      }
+
+      // 难度递增
+      if (config.game.difficultyRamp) {
+        this.difficultyMul = Math.min(1 + this.score * 0.02, 2.5);
+      }
+
+      // 休息提醒
+      if (config.game.restReminder) {
+        this.restTimer += dt;
+        if (this.restTimer >= config.game.restInterval * 1000) {
+          this.paused = true;
+          document.getElementById('rest-reminder').style.display = 'flex';
+        }
+      }
+    }
+
+    this.draw();
+    requestAnimationFrame((t) => this.loop(t));
+  },
+
+  draw() {
+    const ctx = this.ctx;
+    const w = window.innerWidth, h = window.innerHeight;
+
+    // 背景
+    this._drawBackground(ctx, w, h);
+
+    // 猎物
+    for (const p of this.preys) p.draw(ctx);
+
+    // 粒子
+    for (const p of this.particles) p.draw(ctx);
+  },
+
+  _drawBackground(ctx, w, h) {
+    const bg = config.background;
+    if (bg.gradient) {
+      let grad;
+      if (bg.gradientDirection === 'vertical') {
+        grad = ctx.createLinearGradient(0, 0, 0, h);
+      } else if (bg.gradientDirection === 'horizontal') {
+        grad = ctx.createLinearGradient(0, 0, w, 0);
+      } else {
+        grad = ctx.createLinearGradient(0, 0, w, h);
+      }
+      grad.addColorStop(0, bg.color);
+      grad.addColorStop(1, bg.gradientColor);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = bg.color;
+    }
+    ctx.fillRect(0, 0, w, h);
+  },
+
+  onTap(e) {
+    if (this.paused || !this.running) return;
+    // HUD 恢复显示
+    this.hudTimer = 0;
+    document.getElementById('hud').style.opacity = '1';
+
+    const x = e.clientX, y = e.clientY;
+    let hit = false;
+
+    for (let i = this.preys.length - 1; i >= 0; i--) {
+      if (this.preys[i].hitTest(x, y)) {
+        hit = true;
+        const prey = this.preys[i];
+        // 特效
+        this.spawnEffect(prey.x, prey.y);
+        // 音效：播放猎物专属音效
+        Audio.playPreySound(prey.movement);
+        // 得分
+        this.score++;
+        this.combo++;
+        this.comboTimer = 2000;
+        if (this.combo >= 5) this.spawnExtra = true;
+        // 替换猎物
+        this.preys[i] = new Prey(window.innerWidth, window.innerHeight);
+        this.updateHUD();
+        break;
+      }
+    }
+
+    if (!hit) {
+      // 轻微反馈：不扣分，但连击重置
+      this.combo = 0;
+      this.updateHUD();
+    }
+  },
+
+  spawnEffect(x, y) {
+    const count = config.effect.intensity;
+    const color = config.effect.color;
+    const type = config.effect.type;
+    for (let i = 0; i < count; i++) {
+      this.particles.push(new Particle(x, y, color, type));
+    }
+  },
+
+  updateHUD() {
+    const scoreEl = document.getElementById('score-display');
+    const oldScore = parseInt(scoreEl.textContent) || 0;
+    if (oldScore !== this.score) {
+      animateNumber(scoreEl, oldScore, this.score, 350);
+      scoreEl.classList.remove('score-pop');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('score-pop');
+    }
+    const cd = document.getElementById('combo-display');
+    if (this.combo >= 2) {
+      cd.textContent = '\u8fde\u51fb x' + this.combo;
+    } else {
+      cd.textContent = '';
+    }
+  },
+
+  togglePause() {
+    this.paused = !this.paused;
+    const btn = document.getElementById('pause-btn');
+    const label = document.getElementById('pm-pause-label');
+    if (this.paused) {
+      btn.textContent = '\u25b6';
+      if (label) label.textContent = '\u7ee7\u7eed\u6e38\u620f';
+      this.showPauseMenu();
+      Audio.stopMusic();
+      exitFullscreen();
+    } else {
+      btn.textContent = '\u23f8';
+      if (label) label.textContent = '\u6682\u505c';
+      this.hidePauseMenu();
+      if (config.game.musicEnabled) Audio.startMusic();
+      enterFullscreen();
+    }
+  },
+
+  toggleMusic() {
+    config.game.musicEnabled = !config.game.musicEnabled;
+    if (config.game.musicEnabled) {
+      Audio.setMusicVolume(config.game.musicVolume);
+      Audio.startMusic();
+    } else {
+      Audio.stopMusic();
+    }
+    const state = document.getElementById('pm-music-state');
+    if (state) state.textContent = config.game.musicEnabled ? '开' : '关';
+  },
+
+  toggleSound() {
+    config.game.soundEnabled = !config.game.soundEnabled;
+    const state = document.getElementById('pm-sound-state');
+    if (state) state.textContent = config.game.soundEnabled ? '开' : '关';
+  },
+
+  showPauseMenu() {
+    document.getElementById('pause-menu').classList.add('show');
+  },
+
+  hidePauseMenu() {
+    document.getElementById('pause-menu').classList.remove('show');
+  },
+
+  togglePauseMenu() {
+    const menu = document.getElementById('pause-menu');
+    if (menu.classList.contains('show')) {
+      this.hidePauseMenu();
+      // 如果游戏处于暂停状态，恢复游戏
+      if (this.paused) {
+        this.paused = false;
+        document.getElementById('pause-btn').textContent = '⏸';
+        const label = document.getElementById('pm-pause-label');
+        if (label) label.textContent = '暂停';
+        if (config.game.musicEnabled) Audio.startMusic();
+      }
+    } else {
+      this.paused = true;
+      document.getElementById('pause-btn').textContent = '▶';
+      const label = document.getElementById('pm-pause-label');
+      if (label) label.textContent = '继续游戏';
+      this.showPauseMenu();
+      Audio.stopMusic();
+    }
+  },
+
+  dismissRest() {
+    this.restTimer = 0;
+    this.paused = false;
+    document.getElementById('rest-reminder').style.display = 'none';
+    if (config.game.musicEnabled) Audio.startMusic();
+  },
+
+  stop() {
+    this.running = false;
+    Audio.stopMusic();
+    // 保存分数
+    const stats = loadStats();
+    if (!stats.highScore || this.score > stats.highScore) stats.highScore = this.score;
+    stats.totalCatches = (stats.totalCatches || 0) + this.score;
+    saveStats(stats);
+  }
+};
+
+// ============================================================
+//  UI 控制
+// ============================================================
+const UI = {
+  currentScreen: 'menu',
+
+  showScreen(name, opts) {
+    opts = opts || {};
+    // 离开游戏：只有不是从暂停进编辑器时才 stop
+    if (this.currentScreen === 'game' && name !== 'game') {
+      if (opts.fromPause) {
+        // 暂停状态下进入编辑器，只暂停不停止，保留分数和状态
+        Game.paused = true;
+        Audio.stopMusic();
+      } else {
+        Game.stop();
+      }
+      exitFullscreen();
+    }
+
+    // 菜单退场动画
+    const menuEl = document.getElementById('menu-screen');
+    if (this.currentScreen === 'menu' && name !== 'menu') {
+      menuEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      menuEl.style.opacity = '0';
+      menuEl.style.transform = 'scale(0.95)';
+    }
+
+    const self = this;
+    function doSwitch() {
+      menuEl.style.display = name === 'menu' ? 'flex' : 'none';
+      document.getElementById('game-screen').style.display = name === 'game' ? 'block' : 'none';
+      document.getElementById('edit-screen').style.display = name === 'edit' ? 'block' : 'none';
+
+      // 恢复菜单样式
+      if (name === 'menu') {
+        menuEl.style.transition = '';
+        menuEl.style.opacity = '1';
+        menuEl.style.transform = 'scale(1)';
+      }
+
+      self.currentScreen = name;
+
+      if (name === 'menu') {
+        self.updateMenuStats();
+        MenuBg.start();
+        MenuPreyPreview.render();
+      }
+      if (name !== 'menu') MenuBg.stop();
+      if (name === 'game') {
+        // 触发入场动画
+        const gameEl = document.getElementById('game-screen');
+        gameEl.classList.remove('screen-enter');
+        void gameEl.offsetWidth;
+        gameEl.classList.add('screen-enter');
+        // 进入游戏自动全屏
+        enterFullscreen();
+        // 如果是从编辑器返回（从暂停进来的），不重启游戏
+        if (opts.fromEdit && Game.running) {
+          // 恢复暂停状态
+          Game.hidePauseMenu();
+          // 重新生成猎物，应用编辑器中的新设置（保留分数）
+          Game.spawnPreys();
+          if (config.game.musicEnabled) Audio.startMusic();
+          Game.paused = false;
+          document.getElementById('pause-btn').textContent = '\u23f8';
+          const label = document.getElementById('pm-pause-label');
+          if (label) label.textContent = '\u6682\u505c';
+        } else {
+          // 同步暂停菜单状态
+          const pmMusic = document.getElementById('pm-music-state');
+          if (pmMusic) pmMusic.textContent = config.game.musicEnabled ? '\u5f00' : '\u5173';
+          const pmSound = document.getElementById('pm-sound-state');
+          if (pmSound) pmSound.textContent = config.game.soundEnabled ? '\u5f00' : '\u5173';
+          Game.init();
+          Game.start();
+        }
+      }
+      if (name === 'edit') {
+        Editor.init();
+        Editor._returnToGame = opts.fromPause || false;
+      }
+    }
+
+    // 如果是从菜单切走，等退场动画完成
+    if (this.currentScreen === 'menu' && name !== 'menu') {
+      setTimeout(doSwitch, 250);
+    } else {
+      doSwitch();
+    }
+  },
+
+  updateMenuStats() {
+    const stats = loadStats();
+    const el = document.getElementById('menu-stats');
+    if (stats.highScore) {
+      el.innerHTML = `
+        <div class="stats-card">
+          <div class="stats-value">${stats.highScore}</div>
+          <div class="stats-label">最高分</div>
+        </div>
+        <div class="stats-card">
+          <div class="stats-value">${stats.totalCatches || 0}</div>
+          <div class="stats-label">累计捕获</div>
+        </div>
+      `;
+    } else {
+      el.innerHTML = '<div class="stats-empty">还没有游戏记录，快开始吧！</div>';
+    }
+  },
+};
+
+// ============================================================
+//  编辑器
+// ============================================================
+const Editor = {
+  init() {
+    this.renderSidebar();
+    this.initPreview();
+    this.bindEvents();
+  },
+
+  initPreview() {
+    if (!previewInstance) {
+      const canvas = document.getElementById('preview-canvas');
+      previewInstance = new PreviewEngine(canvas);
+    }
+    previewInstance.start();
+  },
+
+  renderSidebar() {
+    const sb = document.getElementById('edit-sidebar');
+    sb.innerHTML = '';
+
+    // -- 猎物设置 --
+    sb.appendChild(this._section('prey', '🎯 猎物设置', `
+      <div class="control-row">
+        <label>大小</label>
+        <input type="range" min="30" max="150" value="${config.prey.size}" data-key="prey.size">
+        <span class="value-display" data-display="prey.size">${config.prey.size}px</span>
+      </div>
+      <div class="control-row">
+        <label>速度</label>
+        <input type="range" min="1" max="10" value="${config.prey.speed}" data-key="prey.speed">
+        <span class="value-display" data-display="prey.speed">${config.prey.speed}</span>
+      </div>
+      <div class="control-row">
+        <label>颜色</label>
+        <div class="color-swatches" data-swatches="prey.color">
+          ${COLOR_SWATCHES.map(c => `<div class="swatch ${c === config.prey.color ? 'active' : ''}" style="background:${c}" data-color="${c}"></div>`).join('')}
+        </div>
+        <input type="color" value="${config.prey.color}" data-key="prey.color">
+      </div>
+      <div class="control-row">
+        <label>运动模式</label>
+        <select data-key="prey.movement">
+          <option value="sine" ${config.prey.movement==='sine'?'selected':''}>S曲线 (小鱼)</option>
+          <option value="dart" ${config.prey.movement==='dart'?'selected':''}>直线弹射 (激光)</option>
+          <option value="wander" ${config.prey.movement==='wander'?'selected':''}>随机游走 (小虫)</option>
+          <option value="fall" ${config.prey.movement==='fall'?'selected':''}>飘落 (羽毛)</option>
+          <option value="frog" ${config.prey.movement==='frog'?'selected':''}>跳跃 (青蛙)</option>
+          <option value="butterfly" ${config.prey.movement==='butterfly'?'selected':''}>飞舞 (蝴蝶)</option>
+          <option value="spider" ${config.prey.movement==='spider'?'selected':''}>爬行 (蜘蛛)</option>
+          <option value="cricket" ${config.prey.movement==='cricket'?'selected':''}>弹跳 (蟋蟀)</option>
+        </select>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:0.85em;color:#aaa">自定义素材</label>
+        <div class="upload-area" id="upload-area">
+          📁 点击上传图片 (PNG/JPG/GIF)<br>
+          <span style="font-size:0.8em;color:#666">建议小于200KB，可上传多张</span>
+        </div>
+        <input type="file" id="file-input" accept="image/*" multiple>
+        <div class="upload-preview" id="upload-preview"></div>
+      </div>
+    `));
+
+    // -- 背景设置 --
+    sb.appendChild(this._section('background', '🎨 背景设置', `
+      <div class="control-row">
+        <label>背景色</label>
+        <input type="color" value="${config.background.color}" data-key="background.color">
+      </div>
+      <div class="control-row">
+        <label>渐变</label>
+        <div class="toggle ${config.background.gradient ? 'on' : ''}" data-toggle="background.gradient"></div>
+      </div>
+      <div class="control-row bg-grad-row" style="${config.background.gradient ? '' : 'opacity:0.4;pointer-events:none'}">
+        <label>渐变色</label>
+        <input type="color" value="${config.background.gradientColor}" data-key="background.gradientColor">
+      </div>
+      <div class="control-row bg-grad-row" style="${config.background.gradient ? '' : 'opacity:0.4;pointer-events:none'}">
+        <label>渐变方向</label>
+        <select data-key="background.gradientDirection">
+          <option value="vertical" ${config.background.gradientDirection==='vertical'?'selected':''}>上下</option>
+          <option value="horizontal" ${config.background.gradientDirection==='horizontal'?'selected':''}>左右</option>
+          <option value="diagonal" ${config.background.gradientDirection==='diagonal'?'selected':''}>对角</option>
+        </select>
+      </div>
+    `));
+
+    // -- 抓捕特效 --
+    sb.appendChild(this._section('effect', '✨ 抓捕特效', `
+      <div class="control-row">
+        <label>特效类型</label>
+        <div class="radio-group" style="flex:1;justify-content:flex-end">
+          ${[['shatter','碎裂'],['explosion','爆炸'],['stars','星星'],['ripple','水波'],['hearts','爱心']].map(([v,n]) =>
+            `<div class="radio-item ${config.effect.type===v?'active':''}" data-radio="effect.type" data-value="${v}">${n}</div>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="control-row">
+        <label>特效颜色</label>
+        <div class="color-swatches" data-swatches="effect.color">
+          ${COLOR_SWATCHES.map(c => `<div class="swatch ${c === config.effect.color ? 'active' : ''}" style="background:${c}" data-color="${c}"></div>`).join('')}
+        </div>
+        <input type="color" value="${config.effect.color}" data-key="effect.color">
+      </div>
+      <div class="control-row">
+        <label>强度(粒子数)</label>
+        <input type="range" min="5" max="40" value="${config.effect.intensity}" data-key="effect.intensity">
+        <span class="value-display" data-display="effect.intensity">${config.effect.intensity}</span>
+      </div>
+      <div class="control-row">
+        <label>持续时间</label>
+        <input type="range" min="300" max="1500" step="100" value="${config.effect.duration}" data-key="effect.duration">
+        <span class="value-display" data-display="effect.duration">${config.effect.duration}ms</span>
+      </div>
+      <div class="control-row">
+        <label>命中音效</label>
+        <select data-key="effect.sound">
+          <option value="pop" ${config.effect.sound==='pop'?'selected':''}>啵</option>
+          <option value="bell" ${config.effect.sound==='bell'?'selected':''}>铃铛</option>
+          <option value="bubble" ${config.effect.sound==='bubble'?'selected':''}>气泡</option>
+          <option value="none" ${config.effect.sound==='none'?'selected':''}>无声</option>
+        </select>
+      </div>
+    `));
+
+    // -- 预设主题 --
+    const activeTheme = localStorage.getItem('catchase-theme') || 'custom';
+    sb.appendChild(this._section('theme', '📋 预设主题', `
+      <div class="theme-grid">
+        ${Object.entries(THEMES).map(([k,t]) =>
+          `<div class="theme-btn ${activeTheme === k ? 'active' : ''}" data-theme="${k}">${t.name}</div>`
+        ).join('')}
+      </div>
+    `));
+
+    // -- 游戏规则 --
+    sb.appendChild(this._section('rules', '⚙ 游戏规则', `
+      <div class="control-row">
+        <label>猎物数量</label>
+        <input type="range" min="1" max="8" value="${config.game.preyCount}" data-key="game.preyCount">
+        <span class="value-display" data-display="game.preyCount">${config.game.preyCount}</span>
+      </div>
+      <div class="control-row">
+        <label>难度递增</label>
+        <div class="toggle ${config.game.difficultyRamp ? 'on' : ''}" data-toggle="game.difficultyRamp"></div>
+      </div>
+      <div class="control-row">
+        <label>音效</label>
+        <div class="toggle ${config.game.soundEnabled ? 'on' : ''}" data-toggle="game.soundEnabled"></div>
+      </div>
+      <div class="control-row">
+        <label>背景音乐</label>
+        <div class="toggle ${config.game.musicEnabled ? 'on' : ''}" data-toggle="game.musicEnabled"></div>
+      </div>
+      <div class="control-row music-vol-row" style="${config.game.musicEnabled ? '' : 'opacity:0.4;pointer-events:none'}">
+        <label>音乐音量</label>
+        <input type="range" min="0" max="50" value="${Math.round(config.game.musicVolume * 100)}" data-key="game.musicVolume" data-divide="100">
+        <span class="value-display" data-display="game.musicVolume">${Math.round(config.game.musicVolume * 100)}%</span>
+      </div>
+      <div class="control-row">
+        <label>休息提醒</label>
+        <div class="toggle ${config.game.restReminder ? 'on' : ''}" data-toggle="game.restReminder"></div>
+      </div>
+      <div class="control-row rest-interval-row" style="${config.game.restReminder ? '' : 'opacity:0.4;pointer-events:none'}">
+        <label>间隔(分钟)</label>
+        <input type="range" min="1" max="15" value="${config.game.restInterval / 60}" data-key="game.restInterval" data-multiply="60">
+        <span class="value-display" data-display="game.restInterval">${Math.round(config.game.restInterval / 60)}min</span>
+      </div>
+    `));
+
+    this.renderUploadPreview();
+  },
+
+  _section(id, title, content) {
+    const div = document.createElement('div');
+    div.className = 'section';
+    div.id = 'sec-' + id;
+    div.innerHTML = `
+      <div class="section-header" data-section="${id}">
+        <span>${title}</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="section-content">${content}</div>
+    `;
+    return div;
+  },
+
+  bindEvents() {
+    const sb = document.getElementById('edit-sidebar');
+
+    // 折叠
+    sb.querySelectorAll('.section-header').forEach(h => {
+      h.addEventListener('click', () => {
+        h.parentElement.classList.toggle('collapsed');
+      });
+    });
+
+    // 滑块
+    sb.querySelectorAll('input[type="range"]').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const key = e.target.dataset.key;
+        let val = parseInt(e.target.value);
+        if (e.target.dataset.multiply) val = val * parseInt(e.target.dataset.multiply);
+        if (e.target.dataset.divide) val = val / parseInt(e.target.dataset.divide);
+        this.setConfig(key, val);
+        // 更新显示
+        const disp = sb.querySelector(`[data-display="${key}"]`);
+        if (disp) {
+          if (key === 'prey.size') disp.textContent = val + 'px';
+          else if (key === 'effect.duration') disp.textContent = val + 'ms';
+          else if (key === 'game.restInterval') disp.textContent = Math.round(val / 60) + 'min';
+          else if (key === 'game.musicVolume') disp.textContent = Math.round(val * 100) + '%';
+          else disp.textContent = val;
+        }
+        // 实时调整音乐音量
+        if (key === 'game.musicVolume') Audio.setMusicVolume(val);
+        previewInstance?.update();
+      });
+    });
+
+    // 颜色选择器
+    sb.querySelectorAll('input[type="color"]').forEach(input => {
+      input.addEventListener('input', (e) => {
+        this.setConfig(e.target.dataset.key, e.target.value);
+        // 同步色板
+        const swatchContainer = e.target.previousElementSibling;
+        if (swatchContainer && swatchContainer.classList.contains('color-swatches')) {
+          swatchContainer.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+        }
+        previewInstance?.update();
+      });
+    });
+
+    // 色板
+    sb.querySelectorAll('[data-swatches]').forEach(container => {
+      const key = container.dataset.swatches;
+      container.querySelectorAll('.swatch').forEach(s => {
+        s.addEventListener('click', () => {
+          container.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+          s.classList.add('active');
+          this.setConfig(key, s.dataset.color);
+          // 同步颜色选择器
+          const colorInput = container.nextElementSibling;
+          if (colorInput && colorInput.type === 'color') colorInput.value = s.dataset.color;
+          previewInstance?.update();
+        });
+      });
+    });
+
+    // 下拉选择
+    sb.querySelectorAll('select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        this.setConfig(e.target.dataset.key, e.target.value);
+        previewInstance?.update();
+      });
+    });
+
+    // 单选组
+    sb.querySelectorAll('[data-radio]').forEach(item => {
+      item.addEventListener('click', () => {
+        const key = item.dataset.radio;
+        const group = item.parentElement;
+        group.querySelectorAll('.radio-item').forEach(x => x.classList.remove('active'));
+        item.classList.add('active');
+        this.setConfig(key, item.dataset.value);
+        previewInstance?.update();
+      });
+    });
+
+    // 开关
+    sb.querySelectorAll('[data-toggle]').forEach(t => {
+      t.addEventListener('click', () => {
+        t.classList.toggle('on');
+        this.setConfig(t.dataset.toggle, t.classList.contains('on'));
+        // 关联行
+        if (t.dataset.toggle === 'background.gradient') {
+          sb.querySelectorAll('.bg-grad-row').forEach(r => {
+            r.style.opacity = t.classList.contains('on') ? '1' : '0.4';
+            r.style.pointerEvents = t.classList.contains('on') ? 'auto' : 'none';
+          });
+        }
+        if (t.dataset.toggle === 'game.restReminder') {
+          const row = sb.querySelector('.rest-interval-row');
+          if (row) {
+            row.style.opacity = t.classList.contains('on') ? '1' : '0.4';
+            row.style.pointerEvents = t.classList.contains('on') ? 'auto' : 'none';
+          }
+        }
+        if (t.dataset.toggle === 'game.musicEnabled') {
+          const row = sb.querySelector('.music-vol-row');
+          if (row) {
+            row.style.opacity = t.classList.contains('on') ? '1' : '0.4';
+            row.style.pointerEvents = t.classList.contains('on') ? 'auto' : 'none';
+          }
+        }
+        previewInstance?.update();
+      });
+    });
+
+    // 主题预设
+    sb.querySelectorAll('[data-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const themeKey = btn.dataset.theme;
+        sb.querySelectorAll('[data-theme]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (themeKey !== 'custom' && THEMES[themeKey]) {
+          this.applyTheme(themeKey);
+        }
+      });
+    });
+
+    // 文件上传
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    if (uploadArea && fileInput) {
+      uploadArea.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+    }
+  },
+
+  handleFileUpload(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > 500 * 1024) {
+        // 压缩大图
+        this.compressImage(file, (dataUrl) => {
+          config.prey.customImages.push(dataUrl);
+          this.renderUploadPreview();
+          previewInstance?.update();
+        });
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          config.prey.customImages.push(ev.target.result);
+          this.renderUploadPreview();
+          previewInstance?.update();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  },
+
+  compressImage(file, callback) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * ratio); h = Math.round(h * ratio);
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/png'));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+
+  renderUploadPreview() {
+    const container = document.getElementById('upload-preview');
+    if (!container) return;
+    container.innerHTML = '';
+    config.prey.customImages.forEach((src, i) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'upload-thumb-wrapper';
+      const img = document.createElement('img');
+      img.className = 'upload-thumb';
+      img.src = src;
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'upload-thumb-remove';
+      removeBtn.textContent = 'x';
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        config.prey.customImages.splice(i, 1);
+        this.renderUploadPreview();
+        previewInstance?.update();
+      };
+      wrapper.appendChild(img);
+      wrapper.appendChild(removeBtn);
+      container.appendChild(wrapper);
+    });
+  },
+
+  setConfig(key, value) {
+    const parts = key.split('.');
+    let obj = config;
+    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = value;
+    saveConfig();
+    // 切换到自定义主题
+    localStorage.setItem('catchase-theme', 'custom');
+    // 如果改的是背景色，同步根元素
+    if (key.startsWith('background.')) updateRootBg();
+  },
+
+  applyTheme(themeKey) {
+    const theme = THEMES[themeKey];
+    if (!theme) return;
+    // 合并主题（保留自定义图片和游戏规则）
+    const customImgs = config.prey.customImages;
+    if (theme.prey) Object.assign(config.prey, theme.prey);
+    if (theme.background) Object.assign(config.background, theme.background);
+    if (theme.effect) Object.assign(config.effect, theme.effect);
+    config.prey.customImages = customImgs;
+    saveConfig();
+    localStorage.setItem('catchase-theme', themeKey);
+    updateRootBg();
+    // 重新渲染面板
+    this.renderSidebar();
+    this.bindEvents();
+    previewInstance?.update();
+  },
+
+  resetDefaults() {
+    if (!confirm('确定要重置所有设置到默认值吗？')) return;
+    config = JSON.parse(JSON.stringify(DEFAULTS));
+    localStorage.removeItem('catchase-theme');
+    saveConfig();
+    updateRootBg();
+    this.renderSidebar();
+    this.bindEvents();
+    previewInstance?.update();
+  },
+
+  saveAndPlay() {
+    saveConfig();
+    if (this._returnToGame) {
+      this._returnToGame = false;
+      UI.showScreen('game', { fromEdit: true });
+    } else {
+      UI.showScreen('game');
+    }
+  },
+
+  goBack() {
+    if (this._returnToGame) {
+      this._returnToGame = false;
+      saveConfig();
+      UI.showScreen('game', { fromEdit: true });
+    } else {
+      UI.showScreen('menu');
+    }
+  }
+};
+
+// ============================================================
+//  预览引擎
+// ============================================================
+class PreviewEngine {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.prey = null;
+    this.particles = [];
+    this.running = false;
+    this.lastTime = 0;
+    this.resize();
+
+    canvas.addEventListener('pointerdown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+      if (this.prey && this.prey.hitTest(x, y)) {
+        this.spawnEffect(this.prey.x, this.prey.y);
+        Audio.playPreySound(this.prey.movement);
+      }
+    });
+  }
+
+  resize() {
+    const parent = this.canvas.parentElement;
+    const pW = parent.clientWidth - 40;
+    const pH = parent.clientHeight - 40;
+    const aspect = 16 / 10;
+    let w, h;
+    if (pW / pH > aspect) { h = Math.min(pH, 500); w = h * aspect; }
+    else { w = Math.min(pW, 800); h = w / aspect; }
+    this.canvas.width = w;
+    this.canvas.height = h;
+  }
+
+  start() {
+    this.running = true;
+    this.spawnPrey();
+    this.lastTime = performance.now();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  spawnPrey() {
+    this.prey = new Prey(this.canvas.width, this.canvas.height);
+  }
+
+  update() {
+    // 参数变更时重新生成猎物以应用新属性
+    this.spawnPrey();
+  }
+
+  loop(now) {
+    if (!this.running) return;
+    const dt = Math.min(now - this.lastTime, 50);
+    this.lastTime = now;
+
+    if (this.prey) this.prey.update(dt);
+    this.particles = this.particles.filter(p => { p.update(); return p.life > 0; });
+
+    this.draw();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    const w = this.canvas.width, h = this.canvas.height;
+
+    // 背景
+    const bg = config.background;
+    if (bg.gradient) {
+      let grad;
+      if (bg.gradientDirection === 'vertical') grad = ctx.createLinearGradient(0, 0, 0, h);
+      else if (bg.gradientDirection === 'horizontal') grad = ctx.createLinearGradient(0, 0, w, 0);
+      else grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, bg.color);
+      grad.addColorStop(1, bg.gradientColor);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = bg.color;
+    }
+    ctx.fillRect(0, 0, w, h);
+
+    if (this.prey) this.prey.draw(ctx);
+    for (const p of this.particles) p.draw(ctx);
+
+    // 提示文字
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('点击猎物测试特效', w / 2, h - 16);
+  }
+
+  spawnEffect(x, y) {
+    const count = config.effect.intensity;
+    const color = config.effect.color;
+    const type = config.effect.type;
+    for (let i = 0; i < count; i++) {
+      this.particles.push(new Particle(x, y, color, type));
+    }
+  }
+}
+
+// ============================================================
+//  首页背景动画 —— 星河粒子网络 + 流星 + 猫爪涟漪
+// ============================================================
+const MenuBg = {
+  canvas: null, ctx: null,
+  particles: [], paws: [], meteors: [],
+  mouseX: -9999, mouseY: -9999,
+  meteorTimer: 0, pawTimer: 0,
+  running: false,
+
+  init() {
+    this.canvas = document.getElementById('menu-bg-canvas');
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d');
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('mousemove', (e) => { this.mouseX = e.clientX; this.mouseY = e.clientY; });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches[0]) { this.mouseX = e.touches[0].clientX; this.mouseY = e.touches[0].clientY; }
+    }, { passive: true });
+
+    this.particles = [];
+    for (let i = 0; i < 40; i++) this.particles.push(this._spawnParticle());
+  },
+
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * dpr;
+    this.canvas.height = window.innerHeight * dpr;
+    this.canvas.style.width = window.innerWidth + 'px';
+    this.canvas.style.height = window.innerHeight + 'px';
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  },
+
+  // --- 星河粒子 ---
+  _spawnParticle() {
+    const colors = [
+      { r: 255, g: 165, b: 0 },
+      { r: 255, g: 107, b: 107 },
+      { r: 255, g: 215, b: 0 },
+      { r: 79,  g: 195, b: 247 },
+    ];
+    const c = colors[Math.floor(Math.random() * colors.length)];
+    return {
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5 - 0.1,
+      r: 1 + Math.random() * 2.5,
+      a: 0.15 + Math.random() * 0.45,
+      cr: c.r, cg: c.g, cb: c.b,
+      phase: Math.random() * Math.PI * 2,
+    };
+  },
+
+  // --- 猫爪涟漪 ---
+  _spawnPaw() {
+    const w = window.innerWidth, h = window.innerHeight;
+    return {
+      x: 60 + Math.random() * (w - 120),
+      y: 60 + Math.random() * (h - 120),
+      life: 0,
+      maxLife: 80 + Math.random() * 40,
+      rot: (Math.random() - 0.5) * 60,
+    };
+  },
+
+  // --- 流星 ---
+  _spawnMeteor() {
+    const w = window.innerWidth;
+    const startX = Math.random() * w * 0.6;
+    const angle = Math.PI * 0.25 + (Math.random() - 0.5) * 0.3;
+    const speed = 6 + Math.random() * 4;
+    return {
+      x: startX,
+      y: -20,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 0,
+      maxLife: 60 + Math.random() * 30,
+      length: 80 + Math.random() * 60,
+    };
+  },
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this._loop();
+  },
+
+  stop() { this.running = false; },
+
+  _loop() {
+    if (!this.running) return;
+    const ctx = this.ctx;
+    const w = window.innerWidth, h = window.innerHeight;
+    ctx.clearRect(0, 0, w, h);
+
+    // ===== 1. 粒子 + 连线网络 =====
+    for (const p of this.particles) {
+      p.phase += 0.02;
+      // 鼠标引力
+      const dx = this.mouseX - p.x;
+      const dy = this.mouseY - p.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 150) {
+        const force = (1 - dist / 150) * 0.04;
+        p.vx += (dx / (dist + 1)) * force;
+        p.vy += (dy / (dist + 1)) * force;
+      }
+      // 速度阻尼
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      // 最低漂移
+      if (Math.abs(p.vx) < 0.05) p.vx += (Math.random() - 0.5) * 0.1;
+      if (Math.abs(p.vy) < 0.05) p.vy += (Math.random() - 0.5) * 0.1;
+      p.x += p.vx + Math.sin(p.phase) * 0.15;
+      p.y += p.vy;
+      // 边界循环
+      if (p.x < -10) p.x = w + 10;
+      if (p.x > w + 10) p.x = -10;
+      if (p.y < -10) p.y = h + 10;
+      if (p.y > h + 10) p.y = -10;
+    }
+
+    // 粒子间连线
+    for (let i = 0; i < this.particles.length; i++) {
+      for (let j = i + 1; j < this.particles.length; j++) {
+        const a = this.particles[i], b = this.particles[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 120) {
+          const alpha = (1 - d / 120) * 0.25;
+          ctx.strokeStyle = 'rgba(' + a.cr + ',' + a.cg + ',' + a.cb + ',' + alpha + ')';
+          ctx.lineWidth = (1 - d / 120) * 1.2;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // 粒子本体
+    for (const p of this.particles) {
+      const flicker = 0.7 + Math.sin(p.phase * 2) * 0.3;
+      const alpha = p.a * flicker;
+      ctx.fillStyle = 'rgba(' + p.cr + ',' + p.cg + ',' + p.cb + ',' + alpha + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // ===== 2. 流星 =====
+    this.meteorTimer++;
+    if (this.meteorTimer > 180 + Math.random() * 120) {
+      this.meteors.push(this._spawnMeteor());
+      this.meteorTimer = 0;
+    }
+    for (let i = this.meteors.length - 1; i >= 0; i--) {
+      const m = this.meteors[i];
+      m.x += m.vx;
+      m.y += m.vy;
+      m.life++;
+      const lifeRatio = m.life / m.maxLife;
+      const fade = lifeRatio < 0.3 ? lifeRatio / 0.3 : (1 - (lifeRatio - 0.3) / 0.7);
+      // 拖尾
+      const tailX = m.x - m.vx * m.length / 8;
+      const tailY = m.y - m.vy * m.length / 8;
+      const grad = ctx.createLinearGradient(m.x, m.y, tailX, tailY);
+      grad.addColorStop(0, 'rgba(255,255,255,' + (0.6 * fade) + ')');
+      grad.addColorStop(0.3, 'rgba(255,200,100,' + (0.3 * fade) + ')');
+      grad.addColorStop(1, 'rgba(255,200,100,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(m.x, m.y);
+      ctx.lineTo(tailX, tailY);
+      ctx.stroke();
+      // 头部光点
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * fade) + ')';
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+      if (m.life >= m.maxLife || m.x > w + 50 || m.y > h + 50) {
+        this.meteors.splice(i, 1);
+      }
+    }
+
+    // ===== 3. 猫爪涟漪 =====
+    this.pawTimer++;
+    if (this.pawTimer > 120 + Math.random() * 100) {
+      this.paws.push(this._spawnPaw());
+      this.pawTimer = 0;
+    }
+    for (let i = this.paws.length - 1; i >= 0; i--) {
+      const p = this.paws[i];
+      p.life++;
+      const ratio = p.life / p.maxLife;
+      if (ratio >= 1) { this.paws.splice(i, 1); continue; }
+      // 淡入快，淡出慢
+      let alpha;
+      if (ratio < 0.2) alpha = (ratio / 0.2) * 0.15;
+      else alpha = (1 - (ratio - 0.2) / 0.8) * 0.15;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#FFA500';
+      // 简化猫爪：掌心椭圆 + 4个趾
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 7, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      for (let a = -1; a <= 1; a++) {
+        ctx.beginPath();
+        ctx.ellipse(a * 4, -4, 2.2, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.ellipse(0, -6, 1.8, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    requestAnimationFrame(() => this._loop());
+  }
+};
+
+// ============================================================
+//  首页猎物预览
+// ============================================================
+const MenuPreyPreview = {
+  preyTypes: [
+    { movement: 'sine',      color: '#FFA500', name: '小鱼' },
+    { movement: 'dart',      color: '#FF1744', name: '激光' },
+    { movement: 'wander',    color: '#8BC34A', name: '小虫' },
+    { movement: 'fall',      color: '#FFFFFF', name: '羽毛' },
+    { movement: 'frog',      color: '#4CAF50', name: '青蛙' },
+    { movement: 'butterfly', color: '#E040FB', name: '蝴蝶' },
+    { movement: 'spider',    color: '#9E9E9E', name: '蜘蛛' },
+    { movement: 'cricket',   color: '#CDDC39', name: '蟋蟀' },
+  ],
+
+  render() {
+    const container = document.getElementById('prey-preview');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // 当前选中的类型（从 config 读取）
+    const currentMovement = config.prey.movement;
+    const currentColor = config.prey.color;
+
+    this.preyTypes.forEach((pt, i) => {
+      const isSelected = pt.movement === currentMovement;
+      const chip = document.createElement('div');
+      chip.className = 'prey-chip' + (isSelected ? ' selected' : '');
+      chip.dataset.movement = pt.movement;
+      chip.dataset.color = pt.color;
+
+      // 勾选标记
+      const check = document.createElement('div');
+      check.className = 'check-mark';
+      check.textContent = '\u2713';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 56; canvas.height = 56;
+      const ctx = canvas.getContext('2d');
+
+      // 临时构造一个 prey 来绘制
+      const savedConfig = JSON.parse(JSON.stringify(config));
+      config.prey.movement = pt.movement;
+      config.prey.color = pt.color;
+      config.prey.size = 26;
+      const prey = new Prey(56, 56);
+      prey.x = 28; prey.y = 28;
+      prey.tailPhase = 0.5;
+      prey.draw(ctx);
+      config = savedConfig;
+
+      const name = document.createElement('div');
+      name.className = 'prey-name';
+      name.textContent = pt.name;
+
+      chip.appendChild(check);
+      chip.appendChild(canvas);
+      chip.appendChild(name);
+
+      // 点击选中
+      chip.addEventListener('click', () => this.select(pt));
+
+      container.appendChild(chip);
+
+      // 瀑布式入场：每张延迟 60ms
+      setTimeout(() => chip.classList.add('prey-chip-in'), i * 60);
+    });
+  },
+
+  select(pt) {
+    // 更新 config
+    config.prey.movement = pt.movement;
+    config.prey.color = pt.color;
+    // 保存到 localStorage
+    saveConfig();
+    // 更新 UI：清除所有选中态，标记当前
+    const chips = document.querySelectorAll('.prey-chip');
+    chips.forEach(c => {
+      if (c.dataset.movement === pt.movement) {
+        c.classList.add('selected');
+      } else {
+        c.classList.remove('selected');
+      }
+    });
+  }
+};
+
+// ============================================================
+//  启动
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  updateRootBg();
+  UI.updateMenuStats();
+  MenuBg.init();
+  MenuBg.start();
+  MenuPreyPreview.render();
+  // 防止移动端双击缩放
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('dblclick', (e) => e.preventDefault());
+  // 触摸滚动阻止
+  document.addEventListener('touchmove', (e) => {
+    if (UI.currentScreen === 'game') e.preventDefault();
+  }, { passive: false });
+
+  // 彩蛋：连续点击 Logo 10 次触发彩虹模式
+  let logoClickCount = 0;
+  let logoClickTimer = null;
+  const logoEl = document.querySelector('#menu-screen .logo');
+  if (logoEl) {
+    logoEl.addEventListener('click', () => {
+      logoClickCount++;
+      clearTimeout(logoClickTimer);
+      logoClickTimer = setTimeout(() => { logoClickCount = 0; }, 2000);
+      if (logoClickCount >= 10) {
+        logoClickCount = 0;
+        const menu = document.getElementById('menu-screen');
+        menu.classList.remove('rainbow-mode');
+        void menu.offsetWidth;
+        menu.classList.add('rainbow-mode');
+        setTimeout(() => menu.classList.remove('rainbow-mode'), 3000);
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
