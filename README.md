@@ -13,12 +13,12 @@
 3. 进入 Settings > Pages
 4. Source 选择 "Deploy from a branch"
 5. Branch 选择 `main`，文件夹选择 `/ (root)`
-6. 保存后约 1-2 分钟，访问 `https://你的用户名.github.io/catchase-game/`
+6. 保存后约 1-2 分钟，访问 `https://wmglimpser-hash.github.io/catchase-game/`
 
 ## 访问地址
 
 部署完成后，评审可通过以下链接访问：
-`https://你的用户名.github.io/catchase-game/`
+`https://wmglimpser-hash.github.io/catchase-game/`
 
 ## 技术栈
 
