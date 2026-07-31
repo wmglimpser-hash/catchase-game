@@ -2,26 +2,10 @@
 
 专为家养猫咪设计的触屏互动游戏。
 
-## 部署方式
-
-本项目为纯静态 HTML 游戏，支持 GitHub Pages 直接部署。
-
-### 部署步骤
-
-1. 在 GitHub 创建新仓库（如 `catchase-game`）
-2. 将本目录下所有文件推送到仓库
-3. 进入 Settings > Pages
-4. Source 选择 "Deploy from a branch"
-5. Branch 选择 `main`，文件夹选择 `/ (root)`
-6. 保存后约 1-2 分钟，访问 `https://wmglimpser-hash.github.io/catchase-game/`
-
 ## 访问地址
 
 评审可通过以下公开链接访问（DuMate 平台分享）：
 `https://www.dumate.cn/s/ThG8ZuyI`
-
-备用镜像（GitHub Pages）：
-`https://wmglimpser-hash.github.io/catchase-game/`
 
 ## 技术栈
 
